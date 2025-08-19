@@ -35678,14 +35678,15 @@ async function run() {
         const data = [
             [
                 'Element',
-                'Missed Instr.', 'Covered Instr.', 'Instr. Cov. (%)',
-                'Missed Branches', 'Covered Branches', 'Branch Cov. (%)',
-                'Missed Lines', 'Covered Lines', 'Line Cov. (%)',
-                'Missed Methods', 'Covered Methods',
-                'Missed Classes', 'Covered Classes'
+                'Missed Instr.', 'Cov. Instr.', 'Instr. Cov. (%)',
+                'Missed Branches', 'Cov. Branches', 'Branch Cov. (%)',
+                'Missed Lines', 'Cov. Lines', 'Line Cov. (%)',
+                'Missed Methods', 'Cov. Methods',
+                'Missed Classes', 'Cov. Classes'
             ],
             ...result.elements.map(el => [
-                el.name,
+                // Pega o último segmento após a última barra
+                el.name.split('/').pop() || el.name,
                 el.missedInstructions, el.coveredInstructions, el.instructionCoverage.toFixed(2),
                 el.missedBranches, el.coveredBranches, el.branchCoverage.toFixed(2),
                 el.missedLines, el.coveredLines, el.lineCoverage.toFixed(2),
