@@ -28838,22 +28838,62 @@ var external_fs_ = __nccwpck_require__(7147);
 var fxp = __nccwpck_require__(2603);
 ;// CONCATENATED MODULE: ./src/reports/jcoco-report-parser.ts
 
-// Parses a JaCoCo XML report and returns line/branch coverage in percent (0-100)
+// Parses a JaCoCo XML report and returns detailed coverage info
 function parseCoverageReport(xml) {
-    const parser = new fxp.XMLParser({
-        ignoreAttributes: false
-    });
+    const parser = new fxp.XMLParser({ ignoreAttributes: false });
     const report = parser.parse(xml);
-    if (!report?.report?.counter) {
+    if (!report?.report) {
         throw new Error('Invalid JaCoCo report');
     }
-    const counters = Array.isArray(report.report.counter) ? report.report.counter : [report.report.counter];
-    const lineCounter = counters.find((c) => c['@_type'] === 'LINE');
-    const branchCounter = counters.find((c) => c['@_type'] === 'BRANCH');
-    const lineCoverage = lineCounter ? (parseFloat(lineCounter['@_covered']) / (parseFloat(lineCounter['@_missed']) + parseFloat(lineCounter['@_covered'])) * 100) : 0;
-    const branchCoverage = branchCounter ? (parseFloat(branchCounter['@_covered']) / (parseFloat(branchCounter['@_missed']) + parseFloat(branchCounter['@_covered'])) * 100) : 0;
-    // TODO: Replace the following with actual parsing logic to extract coverage
+    // Helper to extract counters from a node
+    function extractCounters(node) {
+        const counters = node.counter ? (Array.isArray(node.counter) ? node.counter : [node.counter]) : [];
+        const get = (type, attr) => {
+            const c = counters.find((c) => c['@_type'] === type);
+            return c ? parseInt(c[`@_${attr}`] || '0', 10) : 0;
+        };
+        return {
+            missedInstructions: get('INSTRUCTION', 'missed'),
+            coveredInstructions: get('INSTRUCTION', 'covered'),
+            missedBranches: get('BRANCH', 'missed'),
+            coveredBranches: get('BRANCH', 'covered'),
+            missedLines: get('LINE', 'missed'),
+            coveredLines: get('LINE', 'covered'),
+            missedMethods: get('METHOD', 'missed'),
+            coveredMethods: get('METHOD', 'covered'),
+            missedClasses: get('CLASS', 'missed'),
+            coveredClasses: get('CLASS', 'covered'),
+        };
+    }
+    // Pacotes
+    const packages = report.report.package ? (Array.isArray(report.report.package) ? report.report.package : [report.report.package]) : [];
+    const elements = [];
+    for (const pkg of packages) {
+        const pkgCounters = extractCounters(pkg);
+        elements.push({
+            name: pkg['@_name'] || '(root)',
+            ...pkgCounters,
+            instructionCoverage: (pkgCounters.coveredInstructions + pkgCounters.missedInstructions) > 0 ? (pkgCounters.coveredInstructions / (pkgCounters.coveredInstructions + pkgCounters.missedInstructions)) * 100 : 0,
+            branchCoverage: (pkgCounters.coveredBranches + pkgCounters.missedBranches) > 0 ? (pkgCounters.coveredBranches / (pkgCounters.coveredBranches + pkgCounters.missedBranches)) * 100 : 0,
+            lineCoverage: (pkgCounters.coveredLines + pkgCounters.missedLines) > 0 ? (pkgCounters.coveredLines / (pkgCounters.coveredLines + pkgCounters.missedLines)) * 100 : 0,
+        });
+    }
+    // Totais
+    const totalCounters = extractCounters(report.report);
+    const lineCoverage = (totalCounters.coveredLines + totalCounters.missedLines) > 0 ? (totalCounters.coveredLines / (totalCounters.coveredLines + totalCounters.missedLines)) * 100 : 0;
+    const branchCoverage = (totalCounters.coveredBranches + totalCounters.missedBranches) > 0 ? (totalCounters.coveredBranches / (totalCounters.coveredBranches + totalCounters.missedBranches)) * 100 : 0;
     return {
+        elements,
+        totalMissedInstructions: totalCounters.missedInstructions,
+        totalCoveredInstructions: totalCounters.coveredInstructions,
+        totalMissedBranches: totalCounters.missedBranches,
+        totalCoveredBranches: totalCounters.coveredBranches,
+        totalMissedLines: totalCounters.missedLines,
+        totalCoveredLines: totalCounters.coveredLines,
+        totalMissedMethods: totalCounters.missedMethods,
+        totalCoveredMethods: totalCounters.coveredMethods,
+        totalMissedClasses: totalCounters.missedClasses,
+        totalCoveredClasses: totalCounters.coveredClasses,
         lineCoverage,
         branchCoverage
     };
@@ -28872,19 +28912,31 @@ async function run() {
             throw new Error(`Report file not found: ${reportFile}`);
         }
         const xmlContent = external_fs_.readFileSync(reportFile, 'utf-8');
-        const { lineCoverage, branchCoverage } = parseCoverageReport(xmlContent);
-        core.info(`Line Coverage: ${lineCoverage}`);
-        core.info(`Branch Coverage: ${branchCoverage}`);
-        if (lineCoverage < minCoverage) {
-            core.setFailed(`Line coverage ${lineCoverage}% is below the minimum threshold of ${minCoverage}%`);
+        const result = parseCoverageReport(xmlContent);
+        // Monta tabela markdown
+        let table = '| Element | Missed Instructions | Covered Instructions | Instr. Cov. (%) | Missed Branches | Covered Branches | Branch Cov. (%) | Missed Lines | Covered Lines | Line Cov. (%) | Missed Methods | Covered Methods | Missed Classes | Covered Classes |\n';
+        table += '|---------|--------------------|----------------------|-----------------|-----------------|------------------|-----------------|--------------|--------------|---------------|---------------|----------------|---------------|----------------|\n';
+        for (const el of result.elements) {
+            table += `| ${el.name} | ${el.missedInstructions} | ${el.coveredInstructions} | ${el.instructionCoverage.toFixed(2)} | ${el.missedBranches} | ${el.coveredBranches} | ${el.branchCoverage.toFixed(2)} | ${el.missedLines} | ${el.coveredLines} | ${el.lineCoverage.toFixed(2)} | ${el.missedMethods} | ${el.coveredMethods} | ${el.missedClasses} | ${el.coveredClasses} |\n`;
+        }
+        // Totais
+        table += `| **Total** | ${result.totalMissedInstructions} | ${result.totalCoveredInstructions} | - | ${result.totalMissedBranches} | ${result.totalCoveredBranches} | - | ${result.totalMissedLines} | ${result.totalCoveredLines} | - | ${result.totalMissedMethods} | ${result.totalCoveredMethods} | ${result.totalMissedClasses} | ${result.totalCoveredClasses} |\n`;
+        // Sumário
+        let summary = `\n**Resumo:**\n`;
+        summary += `Total linhas cobertas: ${result.totalCoveredLines}\n`;
+        summary += `Total linhas não cobertas: ${result.totalMissedLines}\n`;
+        summary += `Coverage percentual:\n`;
+        summary += `    Lines coverage: ${result.lineCoverage.toFixed(2)}%\n`;
+        summary += `    Branchs coverage: ${result.branchCoverage.toFixed(2)}%\n`;
+        core.info('\n' + table + summary);
+        if (result.lineCoverage < minCoverage) {
+            core.setFailed(`Line coverage ${result.lineCoverage.toFixed(2)}% is below the minimum threshold of ${minCoverage}%`);
             return;
         }
-        if (branchCoverage < minCoverage) {
-            core.setFailed(`Branch coverage ${branchCoverage}% is below the minimum threshold of ${minCoverage}%`);
+        if (result.branchCoverage < minCoverage) {
+            core.setFailed(`Branch coverage ${result.branchCoverage.toFixed(2)}% is below the minimum threshold of ${minCoverage}%`);
             return;
         }
-        core.info(`Final Line Coverage: ${lineCoverage}`);
-        core.info(`Final Branch Coverage: ${branchCoverage}`);
     }
     catch (error) {
         core.setFailed(`Action failed with error: ${error.message}`);
