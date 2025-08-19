@@ -50,5 +50,9 @@ jobs:
           else
             echo "⚠️ We don't find changes to commit for ${{ github.head_ref || github.ref_name }}."
             echo "⚡ Please make changes to the code on the branch before publishing."
+            echo ""
+            echo "   - If you need help, feel free to ask!"
+            echo "   - You can also check the documentation for more information."
+            echo "   - Make sure your branch is up to date with the base branch."
             exit 1
           fi
