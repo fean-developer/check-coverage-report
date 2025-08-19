@@ -16,6 +16,7 @@ export function parseCoverageReport(xml: string, format: SupportedFormat = 'auto
   const rootName = Object.keys(doc)[0];
 
   // Simple heuristics by root node
+  // JaCoCo
   if (rootName === 'report' && doc.report?.package) {
     return parseJaCoCo(doc);
   }
@@ -26,7 +27,7 @@ export function parseCoverageReport(xml: string, format: SupportedFormat = 'auto
     return parseOpenCover(doc);
   }
 
-  // Try some other hints
+  // Try some other hints if root node is not enough
   if (doc?.report?.counter && doc?.report?.package) return parseJaCoCo(doc);
   if (doc?.coverage) return parseCobertura(doc);
   if (doc?.CoverageSession) return parseOpenCover(doc);
