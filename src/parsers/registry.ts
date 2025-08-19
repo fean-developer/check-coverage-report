@@ -15,8 +15,6 @@ export function parseCoverageReport(xml: string, format: SupportedFormat = 'auto
   const doc: any = parser.parse(xml);
   const rootName = Object.keys(doc)[0];
 
-  // Simple heuristics by root node
-  // JaCoCo
   if (rootName === 'report' && doc.report?.package) {
     return parseJaCoCo(doc);
   }
@@ -35,6 +33,12 @@ export function parseCoverageReport(xml: string, format: SupportedFormat = 'auto
   throw new Error('Unsupported coverage report format. Please specify the format explicitly.');
 }
 
+/**
+ * Route the XML input to the appropriate parser based on the specified format.
+ * @param xml The XML string to parse.
+ * @param format The format to use for parsing.
+ * @returns The parsed coverage result.
+ */
 function routeByFormat(xml: string, format: SupportedFormat): CoverageResult {
   const parser = new XMLParser({ ignoreAttributes: false });
   const doc: any = parser.parse(xml);
