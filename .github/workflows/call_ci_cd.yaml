@@ -1,0 +1,14 @@
+name: Build and push
+
+permissions:
+  contents: write
+on:
+  push:
+    branches-ignore:
+      - main
+jobs:
+  call-fast-build:
+    uses: ./node-fast-build.yaml@main
+    with:
+      head-branch: ${{ github.head_ref }}
+    secrets: inherit

@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ${{ vars.RUNNER_DEFAULT }}
+    runs-on: ubuntu-latest
     
     steps:
       - name: Checkout code
@@ -38,7 +38,7 @@ jobs:
         run: npm install
 
       - name: Build the distribution
-        run: npm run build
+        run: npm run package
 
       - name: Commit and push changes
         id: step-build
