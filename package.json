@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "package": "npx @vercel/ncc build src/index.ts -o dist",
+    "package": "npm run build && npx @vercel/ncc build src/index.ts -o dist",
     "clean": "rm -rf node_modules dist package-lock.json",
     "audit": "npm audit --audit-level=low || true"
   },
