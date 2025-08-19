@@ -35822,6 +35822,12 @@ function parseOpenCover(doc) {
         branchCoverage: opencover_pct(totals.coveredBranches, totals.missedBranches),
     };
 }
+/**
+ * Calculate the percentage of covered vs missed items.
+ * @param c The number of covered items.
+ * @param m The number of missed items.
+ * @returns The percentage of covered items.
+ */
 function opencover_pct(c, m) { const d = c + m; return d > 0 ? (c / d) * 100 : 0; }
 
 ;// CONCATENATED MODULE: ./src/parsers/registry.ts
