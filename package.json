@@ -5,8 +5,9 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
+    "rm-dist": "rm -rf dist",
     "build": "tsc -p tsconfig.json",
-    "package": "npm run build && npx @vercel/ncc build src/index.ts -o dist",
+    "package": "npm run rm-dist && npm run build && npx @vercel/ncc build src/index.ts -o dist",
     "clean": "rm -rf node_modules dist package-lock.json",
     "audit": "npm audit --audit-level=low || true"
   },
