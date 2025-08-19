@@ -14,23 +14,36 @@ async function run() {
         }
 
         const xmlContent = fs.readFileSync(reportFile, 'utf-8');
-        const { lineCoverage, branchCoverage } = parseCoverageReport(xmlContent);
 
-        core.info(`Line Coverage: ${lineCoverage}`);
-        core.info(`Branch Coverage: ${branchCoverage}`);
+        const result = parseCoverageReport(xmlContent);
 
-        if (lineCoverage < minCoverage) {
-            core.setFailed(`Line coverage ${lineCoverage}% is below the minimum threshold of ${minCoverage}%`);
-            return
+        // Monta tabela markdown
+        let table = '| Element | Missed Instructions | Covered Instructions | Instr. Cov. (%) | Missed Branches | Covered Branches | Branch Cov. (%) | Missed Lines | Covered Lines | Line Cov. (%) | Missed Methods | Covered Methods | Missed Classes | Covered Classes |\n';
+        table += '|---------|--------------------|----------------------|-----------------|-----------------|------------------|-----------------|--------------|--------------|---------------|---------------|----------------|---------------|----------------|\n';
+        for (const el of result.elements) {
+            table += `| ${el.name} | ${el.missedInstructions} | ${el.coveredInstructions} | ${el.instructionCoverage.toFixed(2)} | ${el.missedBranches} | ${el.coveredBranches} | ${el.branchCoverage.toFixed(2)} | ${el.missedLines} | ${el.coveredLines} | ${el.lineCoverage.toFixed(2)} | ${el.missedMethods} | ${el.coveredMethods} | ${el.missedClasses} | ${el.coveredClasses} |\n`;
         }
+        // Totais
+        table += `| **Total** | ${result.totalMissedInstructions} | ${result.totalCoveredInstructions} | - | ${result.totalMissedBranches} | ${result.totalCoveredBranches} | - | ${result.totalMissedLines} | ${result.totalCoveredLines} | - | ${result.totalMissedMethods} | ${result.totalCoveredMethods} | ${result.totalMissedClasses} | ${result.totalCoveredClasses} |\n`;
 
-        if (branchCoverage < minCoverage) {
-            core.setFailed(`Branch coverage ${branchCoverage}% is below the minimum threshold of ${minCoverage}%`);
+        // Sumário
+        let summary = `\n**Resumo:**\n`;
+        summary += `Total linhas cobertas: ${result.totalCoveredLines}\n`;
+        summary += `Total linhas não cobertas: ${result.totalMissedLines}\n`;
+        summary += `Coverage percentual:\n`;
+        summary += `    Lines coverage: ${result.lineCoverage.toFixed(2)}%\n`;
+        summary += `    Branchs coverage: ${result.branchCoverage.toFixed(2)}%\n`;
+
+        core.info('\n' + table + summary);
+
+        if (result.lineCoverage < minCoverage) {
+            core.setFailed(`Line coverage ${result.lineCoverage.toFixed(2)}% is below the minimum threshold of ${minCoverage}%`);
             return;
         }
-
-        core.info(`Final Line Coverage: ${lineCoverage}`);
-        core.info(`Final Branch Coverage: ${branchCoverage}`);
+        if (result.branchCoverage < minCoverage) {
+            core.setFailed(`Branch coverage ${result.branchCoverage.toFixed(2)}% is below the minimum threshold of ${minCoverage}%`);
+            return;
+        }
 
     } catch (error: any) {
         core.setFailed(`Action failed with error: ${error.message}`);
