@@ -136,6 +136,7 @@ jobs:
                 Automated release for ${{ steps.version.outputs.new_tag }}
                 draft: false
                 prerelease: false
+                
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
