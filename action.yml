@@ -1,0 +1,15 @@
+name: "JaCoCo Coverage Check"
+description: "Valida a cobertura de código gerada pelo JaCoCo"
+author: "Seu Nome"
+inputs:
+  report-file:
+    description: "Arquivo XML de cobertura gerado pelo JaCoCo"
+    required: true
+    default: "target/site/jacoco/jacoco.xml"
+  min-coverage:
+    description: "Cobertura mínima exigida (%)"
+    required: true
+    default: "80"
+runs:
+  using: "node20"
+  main: "dist/index.js"
