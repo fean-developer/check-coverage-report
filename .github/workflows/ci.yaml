@@ -42,8 +42,13 @@ jobs:
 
           # Força a atualização da pasta dist uma vez que ela é ignorada no .gitignore
           git add -f dist/      
-  
-          git commit -m "Executing build ${{ inputs.head-branch }}"
-          git push origin ${{ inputs.head-branch }}
-        
-    
+
+          # Adicione uma verificação para garantir que há mudanças a serem commitadas
+          if [[ -n $(git status --porcelain) ]]; then
+            git commit -m "Executing build ${{ github.head_ref || github.ref_name }}"
+            git push origin ${{ github.head_ref || github.ref_name }}
+          else
+            echo "📌 You have no changes to commit for ${{ github.head_ref || github.ref_name }}."
+            echo "   - Please make changes to the code before committing."
+            exit 0
+          fi
