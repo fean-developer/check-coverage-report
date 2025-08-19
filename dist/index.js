@@ -28848,10 +28848,10 @@ function parseCoverageReport(xml) {
         throw new Error('Invalid JaCoCo report');
     }
     const counters = Array.isArray(report.report.counter) ? report.report.counter : [report.report.counter];
-    const lineCounter = counters.find((c) => c.$.type === 'LINE');
-    const branchCounter = counters.find((c) => c.$.type === 'BRANCH');
-    const lineCoverage = lineCounter ? parseFloat(lineCounter.$.covered) / parseFloat(lineCounter.$.missed) + parseFloat(lineCounter.$.covered) * 100 : 0;
-    const branchCoverage = branchCounter ? parseFloat(branchCounter.$.covered) / parseFloat(branchCounter.$.missed) + parseFloat(branchCounter.$.covered) * 100 : 0;
+    const lineCounter = counters.find((c) => c['@_type'] === 'LINE');
+    const branchCounter = counters.find((c) => c['@_type'] === 'BRANCH');
+    const lineCoverage = lineCounter ? (parseFloat(lineCounter['@_covered']) / (parseFloat(lineCounter['@_missed']) + parseFloat(lineCounter['@_covered'])) * 100) : 0;
+    const branchCoverage = branchCounter ? (parseFloat(branchCounter['@_covered']) / (parseFloat(branchCounter['@_missed']) + parseFloat(branchCounter['@_covered'])) * 100) : 0;
     // TODO: Replace the following with actual parsing logic to extract coverage
     return {
         lineCoverage,
