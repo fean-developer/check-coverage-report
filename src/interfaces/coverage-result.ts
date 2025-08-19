@@ -3,6 +3,8 @@ export interface CoverageElement {
     missedInstructions: number;
     coveredInstructions: number;
     instructionCoverage: number;
+    missedComplexity?: number;
+    coveredComplexity?: number;
     missedBranches: number;
     coveredBranches: number;
     branchCoverage: number;
@@ -19,6 +21,8 @@ export interface CoverageResult {
     elements: CoverageElement[];
     totalMissedInstructions: number;
     totalCoveredInstructions: number;
+    totalMissedComplexity?: number;
+    totalCoveredComplexity?: number;
     totalMissedBranches: number;
     totalCoveredBranches: number;
     totalMissedLines: number;

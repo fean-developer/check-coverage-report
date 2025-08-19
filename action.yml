@@ -10,6 +10,10 @@ inputs:
     description: "Cobertura mínima exigida (%)"
     required: true
     default: "80"
+  report-format:
+    description: "Formato do relatório de cobertura (auto, jacoco, cobertura, opencover, dotcover, visualstudio, ncover)"
+    required: false
+    default: "auto"
 runs:
   using: "node20"
   main: "dist/index.js"

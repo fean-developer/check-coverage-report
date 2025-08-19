@@ -35596,25 +35596,23 @@ var external_fs_ = __nccwpck_require__(7147);
 var src = __nccwpck_require__(3756);
 // EXTERNAL MODULE: ./node_modules/fast-xml-parser/src/fxp.js
 var fxp = __nccwpck_require__(2603);
-;// CONCATENATED MODULE: ./src/reports/jcoco-report-parser.ts
-
-// Parses a JaCoCo XML report and returns detailed coverage info
-function parseCoverageReport(xml) {
-    const parser = new fxp.XMLParser({ ignoreAttributes: false });
-    const report = parser.parse(xml);
-    if (!report?.report) {
+;// CONCATENATED MODULE: ./src/parsers/jacoco.ts
+// Parse already-parsed JaCoCo JSON (from fast-xml-parser)
+function parseJaCoCo(doc) {
+    const report = doc.report;
+    if (!report)
         throw new Error('Invalid JaCoCo report');
-    }
-    // Helper to extract counters from a node
-    function extractCounters(node) {
-        const counters = node.counter ? (Array.isArray(node.counter) ? node.counter : [node.counter]) : [];
+    const extractCounters = (node) => {
+        const counters = node?.counter ? (Array.isArray(node.counter) ? node.counter : [node.counter]) : [];
         const get = (type, attr) => {
-            const c = counters.find((c) => c['@_type'] === type);
+            const c = counters.find((x) => x['@_type'] === type);
             return c ? parseInt(c[`@_${attr}`] || '0', 10) : 0;
         };
         return {
             missedInstructions: get('INSTRUCTION', 'missed'),
             coveredInstructions: get('INSTRUCTION', 'covered'),
+            missedComplexity: get('COMPLEXITY', 'missed'),
+            coveredComplexity: get('COMPLEXITY', 'covered'),
             missedBranches: get('BRANCH', 'missed'),
             coveredBranches: get('BRANCH', 'covered'),
             missedLines: get('LINE', 'missed'),
@@ -35624,39 +35622,259 @@ function parseCoverageReport(xml) {
             missedClasses: get('CLASS', 'missed'),
             coveredClasses: get('CLASS', 'covered'),
         };
-    }
-    // Pacotes
-    const packages = report.report.package ? (Array.isArray(report.report.package) ? report.report.package : [report.report.package]) : [];
+    };
+    const packages = report.package ? (Array.isArray(report.package) ? report.package : [report.package]) : [];
     const elements = [];
     for (const pkg of packages) {
-        const pkgCounters = extractCounters(pkg);
+        const c = extractCounters(pkg);
         elements.push({
             name: pkg['@_name'] || '(root)',
-            ...pkgCounters,
-            instructionCoverage: (pkgCounters.coveredInstructions + pkgCounters.missedInstructions) > 0 ? (pkgCounters.coveredInstructions / (pkgCounters.coveredInstructions + pkgCounters.missedInstructions)) * 100 : 0,
-            branchCoverage: (pkgCounters.coveredBranches + pkgCounters.missedBranches) > 0 ? (pkgCounters.coveredBranches / (pkgCounters.coveredBranches + pkgCounters.missedBranches)) * 100 : 0,
-            lineCoverage: (pkgCounters.coveredLines + pkgCounters.missedLines) > 0 ? (pkgCounters.coveredLines / (pkgCounters.coveredLines + pkgCounters.missedLines)) * 100 : 0,
+            ...c,
+            instructionCoverage: sumPct(c.coveredInstructions, c.missedInstructions),
+            branchCoverage: sumPct(c.coveredBranches, c.missedBranches),
+            lineCoverage: sumPct(c.coveredLines, c.missedLines),
         });
     }
-    // Totais
-    const totalCounters = extractCounters(report.report);
-    const lineCoverage = (totalCounters.coveredLines + totalCounters.missedLines) > 0 ? (totalCounters.coveredLines / (totalCounters.coveredLines + totalCounters.missedLines)) * 100 : 0;
-    const branchCoverage = (totalCounters.coveredBranches + totalCounters.missedBranches) > 0 ? (totalCounters.coveredBranches / (totalCounters.coveredBranches + totalCounters.missedBranches)) * 100 : 0;
+    const total = extractCounters(report);
     return {
         elements,
-        totalMissedInstructions: totalCounters.missedInstructions,
-        totalCoveredInstructions: totalCounters.coveredInstructions,
-        totalMissedBranches: totalCounters.missedBranches,
-        totalCoveredBranches: totalCounters.coveredBranches,
-        totalMissedLines: totalCounters.missedLines,
-        totalCoveredLines: totalCounters.coveredLines,
-        totalMissedMethods: totalCounters.missedMethods,
-        totalCoveredMethods: totalCounters.coveredMethods,
-        totalMissedClasses: totalCounters.missedClasses,
-        totalCoveredClasses: totalCounters.coveredClasses,
-        lineCoverage,
-        branchCoverage
+        totalMissedInstructions: total.missedInstructions,
+        totalCoveredInstructions: total.coveredInstructions,
+        totalMissedComplexity: total.missedComplexity,
+        totalCoveredComplexity: total.coveredComplexity,
+        totalMissedBranches: total.missedBranches,
+        totalCoveredBranches: total.coveredBranches,
+        totalMissedLines: total.missedLines,
+        totalCoveredLines: total.coveredLines,
+        totalMissedMethods: total.missedMethods,
+        totalCoveredMethods: total.coveredMethods,
+        totalMissedClasses: total.missedClasses,
+        totalCoveredClasses: total.coveredClasses,
+        lineCoverage: sumPct(total.coveredLines, total.missedLines),
+        branchCoverage: sumPct(total.coveredBranches, total.missedBranches),
     };
+}
+function sumPct(covered, missed) {
+    const denom = covered + missed;
+    return denom > 0 ? (covered / denom) * 100 : 0;
+}
+
+;// CONCATENATED MODULE: ./src/parsers/cobertura.ts
+// Parse Cobertura XML (already parsed to JSON by fast-xml-parser)
+function parseCobertura(doc) {
+    const root = doc.coverage;
+    if (!root)
+        throw new Error('Invalid Cobertura report');
+    const packages = root.packages?.package ? (Array.isArray(root.packages.package) ? root.packages.package : [root.packages.package]) : [];
+    const elements = [];
+    const toInt = (v) => parseInt(String(v || 0), 10);
+    const toFloat = (v) => parseFloat(String(v || 0));
+    let totals = {
+        missedInstructions: 0,
+        coveredInstructions: 0,
+        missedBranches: 0,
+        coveredBranches: 0,
+        missedLines: 0,
+        coveredLines: 0,
+        missedMethods: 0,
+        coveredMethods: 0,
+        missedClasses: 0,
+        coveredClasses: 0,
+    };
+    for (const pkg of packages) {
+        const classes = pkg.classes?.class ? (Array.isArray(pkg.classes.class) ? pkg.classes.class : [pkg.classes.class]) : [];
+        // Aggregate per package
+        let pkgAgg = { ...totals };
+        let methodMissed = 0, methodCovered = 0;
+        let classCount = classes.length;
+        for (const cls of classes) {
+            const lines = cls.lines?.line ? (Array.isArray(cls.lines.line) ? cls.lines.line : [cls.lines.line]) : [];
+            let missedLines = 0, coveredLines = 0;
+            let missedBranches = 0, coveredBranches = 0;
+            for (const line of lines) {
+                const hits = toInt(line['@_hits']);
+                if (hits > 0)
+                    coveredLines++;
+                else
+                    missedLines++;
+                if (line['@_branch'] === 'true' && line.conditions?.condition) {
+                    const conds = Array.isArray(line.conditions.condition) ? line.conditions.condition : [line.conditions.condition];
+                    for (const c of conds) {
+                        const cov = toFloat(c['@_coverage']); // e.g., 50% format
+                        if (cov > 0)
+                            coveredBranches++;
+                        else
+                            missedBranches++;
+                    }
+                }
+            }
+            pkgAgg.missedLines += missedLines;
+            pkgAgg.coveredLines += coveredLines;
+            pkgAgg.missedBranches += missedBranches;
+            pkgAgg.coveredBranches += coveredBranches;
+            // Cobertura doesn't provide instruction counters explicitly per class
+            methodCovered += (cls.methods?.method ? (Array.isArray(cls.methods.method) ? cls.methods.method.length : 1) : 0);
+        }
+        pkgAgg.missedClasses += classCount === 0 ? 0 : 0; // not precise, placeholder
+        pkgAgg.coveredClasses += classCount;
+        pkgAgg.coveredMethods += methodCovered;
+        elements.push({
+            name: pkg['@_name'] || '(root)',
+            ...pkgAgg,
+            instructionCoverage: pct(pkgAgg.coveredInstructions, pkgAgg.missedInstructions),
+            branchCoverage: pct(pkgAgg.coveredBranches, pkgAgg.missedBranches),
+            lineCoverage: pct(pkgAgg.coveredLines, pkgAgg.missedLines),
+        });
+        // Add to totals
+        totals.missedInstructions += pkgAgg.missedInstructions;
+        totals.coveredInstructions += pkgAgg.coveredInstructions;
+        totals.missedBranches += pkgAgg.missedBranches;
+        totals.coveredBranches += pkgAgg.coveredBranches;
+        totals.missedLines += pkgAgg.missedLines;
+        totals.coveredLines += pkgAgg.coveredLines;
+        totals.missedMethods += pkgAgg.missedMethods;
+        totals.coveredMethods += pkgAgg.coveredMethods;
+        totals.missedClasses += pkgAgg.missedClasses;
+        totals.coveredClasses += pkgAgg.coveredClasses;
+    }
+    return {
+        elements,
+        totalMissedInstructions: totals.missedInstructions,
+        totalCoveredInstructions: totals.coveredInstructions,
+        totalMissedBranches: totals.missedBranches,
+        totalCoveredBranches: totals.coveredBranches,
+        totalMissedLines: totals.missedLines,
+        totalCoveredLines: totals.coveredLines,
+        totalMissedMethods: totals.missedMethods,
+        totalCoveredMethods: totals.coveredMethods,
+        totalMissedClasses: totals.missedClasses,
+        totalCoveredClasses: totals.coveredClasses,
+        lineCoverage: pct(totals.coveredLines, totals.missedLines),
+        branchCoverage: pct(totals.coveredBranches, totals.missedBranches),
+    };
+}
+function pct(c, m) { const d = c + m; return d > 0 ? (c / d) * 100 : 0; }
+
+;// CONCATENATED MODULE: ./src/parsers/opencover.ts
+// Parse OpenCover (already parsed by fast-xml-parser)
+function parseOpenCover(doc) {
+    const root = doc.CoverageSession;
+    if (!root)
+        throw new Error('Invalid OpenCover report');
+    const modules = root.Modules?.Module ? (Array.isArray(root.Modules.Module) ? root.Modules.Module : [root.Modules.Module]) : [];
+    const elements = [];
+    let totals = {
+        missedInstructions: 0,
+        coveredInstructions: 0,
+        missedBranches: 0,
+        coveredBranches: 0,
+        missedLines: 0,
+        coveredLines: 0,
+        missedMethods: 0,
+        coveredMethods: 0,
+        missedClasses: 0,
+        coveredClasses: 0,
+    };
+    const toInt = (v) => parseInt(String(v || 0), 10);
+    for (const mod of modules) {
+        const summary = mod.Summary || {};
+        const c = {
+            missedInstructions: toInt(summary['@_numSequencePoints']) - toInt(summary['@_visitedSequencePoints']),
+            coveredInstructions: toInt(summary['@_visitedSequencePoints']),
+            missedBranches: toInt(summary['@_numBranchPoints']) - toInt(summary['@_visitedBranchPoints']),
+            coveredBranches: toInt(summary['@_visitedBranchPoints']),
+            missedLines: toInt(summary['@_numSequencePoints']) - toInt(summary['@_visitedSequencePoints']),
+            coveredLines: toInt(summary['@_visitedSequencePoints']),
+            missedMethods: toInt(summary['@_numMethods']) - toInt(summary['@_visitedMethods']),
+            coveredMethods: toInt(summary['@_visitedMethods']),
+            missedClasses: toInt(summary['@_numClasses']) - toInt(summary['@_visitedClasses']),
+            coveredClasses: toInt(summary['@_visitedClasses']),
+        };
+        totals.missedInstructions += c.missedInstructions;
+        totals.coveredInstructions += c.coveredInstructions;
+        totals.missedBranches += c.missedBranches;
+        totals.coveredBranches += c.coveredBranches;
+        totals.missedLines += c.missedLines;
+        totals.coveredLines += c.coveredLines;
+        totals.missedMethods += c.missedMethods;
+        totals.coveredMethods += c.coveredMethods;
+        totals.missedClasses += c.missedClasses;
+        totals.coveredClasses += c.coveredClasses;
+        elements.push({
+            name: mod['@_moduleName'] || '(module)',
+            ...c,
+            instructionCoverage: opencover_pct(c.coveredInstructions, c.missedInstructions),
+            branchCoverage: opencover_pct(c.coveredBranches, c.missedBranches),
+            lineCoverage: opencover_pct(c.coveredLines, c.missedLines),
+        });
+    }
+    return {
+        elements,
+        totalMissedInstructions: totals.missedInstructions,
+        totalCoveredInstructions: totals.coveredInstructions,
+        totalMissedBranches: totals.missedBranches,
+        totalCoveredBranches: totals.coveredBranches,
+        totalMissedLines: totals.missedLines,
+        totalCoveredLines: totals.coveredLines,
+        totalMissedMethods: totals.missedMethods,
+        totalCoveredMethods: totals.coveredMethods,
+        totalMissedClasses: totals.missedClasses,
+        totalCoveredClasses: totals.coveredClasses,
+        lineCoverage: opencover_pct(totals.coveredLines, totals.missedLines),
+        branchCoverage: opencover_pct(totals.coveredBranches, totals.missedBranches),
+    };
+}
+function opencover_pct(c, m) { const d = c + m; return d > 0 ? (c / d) * 100 : 0; }
+
+;// CONCATENATED MODULE: ./src/parsers/registry.ts
+
+
+
+
+function parseCoverageReport(xml, format = 'auto') {
+    if (format !== 'auto') {
+        return routeByFormat(xml, format);
+    }
+    const parser = new fxp.XMLParser({ ignoreAttributes: false });
+    const doc = parser.parse(xml);
+    const rootName = Object.keys(doc)[0];
+    // Simple heuristics by root node
+    if (rootName === 'report' && doc.report?.package) {
+        return parseJaCoCo(doc);
+    }
+    if (rootName === 'coverage' && (doc.coverage?.packages || doc.coverage?.["@_line-rate"])) {
+        return parseCobertura(doc);
+    }
+    if (rootName === 'CoverageSession' && doc.CoverageSession?.Summary) {
+        return parseOpenCover(doc);
+    }
+    // Try some other hints
+    if (doc?.report?.counter && doc?.report?.package)
+        return parseJaCoCo(doc);
+    if (doc?.coverage)
+        return parseCobertura(doc);
+    if (doc?.CoverageSession)
+        return parseOpenCover(doc);
+    throw new Error('Unsupported coverage report format. Please specify the format explicitly.');
+}
+function routeByFormat(xml, format) {
+    const parser = new fxp.XMLParser({ ignoreAttributes: false });
+    const doc = parser.parse(xml);
+    switch (format) {
+        case 'jacoco':
+            return parseJaCoCo(doc);
+        case 'cobertura':
+            return parseCobertura(doc);
+        case 'opencover':
+            return parseOpenCover(doc);
+        // Placeholders for future
+        case 'dotcover':
+        case 'visualstudio':
+        case 'ncover':
+            throw new Error(`Parser for format '${format}' not implemented yet.`);
+        default:
+            throw new Error(`Unknown format '${format}'.`);
+    }
 }
 
 ;// CONCATENATED MODULE: ./src/index.ts
@@ -35668,12 +35886,13 @@ async function run() {
     core.info('Action started');
     try {
         const reportFile = core.getInput('report-file');
+        const reportFormat = (core.getInput('report-format') || 'auto');
         const minCoverage = parseFloat(core.getInput('min-coverage')) || 0;
         if (!external_fs_.existsSync(reportFile)) {
             throw new Error(`Report file not found: ${reportFile}`);
         }
         const xmlContent = external_fs_.readFileSync(reportFile, 'utf-8');
-        const result = parseCoverageReport(xmlContent);
+        const result = parseCoverageReport(xmlContent, reportFormat);
         // Monta tabela formatada usando 'table'
         // Tabela igual à do JaCoCo HTML
         const data = [
@@ -35699,8 +35918,8 @@ async function run() {
                     el.name,
                     `${el.missedInstructions} of ${instrTotal}`, instrCov,
                     branchTotal > 0 ? `${el.missedBranches} of ${branchTotal}` : 'n/a', branchCov,
-                    el.missedBranches, // Missed
-                    '-', // Cxty (não disponível)
+                    el.missedBranches,
+                    (el.missedComplexity ?? 0) + (el.coveredComplexity ?? 0) > 0 ? (el.missedComplexity ?? 0) : 0,
                     el.missedLines, lineTotal, el.missedMethods, methodTotal, el.missedClasses, classTotal
                 ];
             }),
@@ -35711,7 +35930,7 @@ async function run() {
                 result.totalCoveredBranches + result.totalMissedBranches > 0 ? `${result.totalMissedBranches} of ${result.totalMissedBranches + result.totalCoveredBranches}` : 'n/a',
                 result.totalCoveredBranches + result.totalMissedBranches > 0 ? `${Math.round((result.totalCoveredBranches / (result.totalCoveredBranches + result.totalMissedBranches)) * 100)}%` : 'n/a',
                 result.totalMissedBranches,
-                '-',
+                (result.totalMissedComplexity ?? 0),
                 result.totalMissedLines, result.totalMissedLines + result.totalCoveredLines,
                 result.totalMissedMethods, result.totalMissedMethods + result.totalCoveredMethods,
                 result.totalMissedClasses, result.totalMissedClasses + result.totalCoveredClasses

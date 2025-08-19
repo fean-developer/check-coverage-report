@@ -1,13 +1,15 @@
 import * as core from '@actions/core';
 import * as fs from 'fs';
 import { table } from 'table';
-import { parseCoverageReport } from './reports/jcoco-report-parser';
+import { parseCoverageReport } from './parsers/registry';
+import type { SupportedFormat } from './parsers/registry';
 
 
 async function run() {
     core.info('Action started');
     try {
-        const reportFile = core.getInput('report-file');
+    const reportFile = core.getInput('report-file');
+    const reportFormat = (core.getInput('report-format') || 'auto') as SupportedFormat;
         const minCoverage = parseFloat(core.getInput('min-coverage')) || 0;
 
         if (!fs.existsSync(reportFile)) {
@@ -16,7 +18,7 @@ async function run() {
 
         const xmlContent = fs.readFileSync(reportFile, 'utf-8');
 
-        const result = parseCoverageReport(xmlContent);
+    const result = parseCoverageReport(xmlContent, reportFormat);
 
 
         // Monta tabela formatada usando 'table'
@@ -45,8 +47,8 @@ async function run() {
                     el.name,
                     `${el.missedInstructions} of ${instrTotal}`, instrCov,
                     branchTotal > 0 ? `${el.missedBranches} of ${branchTotal}` : 'n/a', branchCov,
-                    el.missedBranches, // Missed
-                    '-', // Cxty (não disponível)
+                    el.missedBranches,
+                    (el.missedComplexity ?? 0) + (el.coveredComplexity ?? 0) > 0 ? (el.missedComplexity ?? 0) : 0,
                     el.missedLines, lineTotal, el.missedMethods, methodTotal, el.missedClasses, classTotal
                 ];
             }),
@@ -57,7 +59,7 @@ async function run() {
                 result.totalCoveredBranches + result.totalMissedBranches > 0 ? `${result.totalMissedBranches} of ${result.totalMissedBranches + result.totalCoveredBranches}` : 'n/a',
                 result.totalCoveredBranches + result.totalMissedBranches > 0 ? `${Math.round((result.totalCoveredBranches / (result.totalCoveredBranches + result.totalMissedBranches)) * 100)}%` : 'n/a',
                 result.totalMissedBranches,
-                '-',
+                (result.totalMissedComplexity ?? 0),
                 result.totalMissedLines, result.totalMissedLines + result.totalCoveredLines,
                 result.totalMissedMethods, result.totalMissedMethods + result.totalCoveredMethods,
                 result.totalMissedClasses, result.totalMissedClasses + result.totalCoveredClasses
