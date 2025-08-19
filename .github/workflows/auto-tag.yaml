@@ -1,0 +1,111 @@
+name: Auto Tag
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    # Executa em push ou quando PR foi mesclado na main
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get last tag
+        id: lasttag
+        run: |
+          git fetch --tags --force
+          last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "last_tag=$last_tag" >> $GITHUB_OUTPUT
+          echo "Last tag: $last_tag"
+
+      - name: Get commit messages since last tag
+        id: commits
+        run: |
+          last_tag="${{ steps.lasttag.outputs.last_tag }}"
+          if [ "$last_tag" = "v0.0.0" ]; then
+            range=""
+          else
+            range="${last_tag}..HEAD"
+          fi
+          messages=$(git log --no-merges --pretty=format:%s $range || true)
+          echo "messages<<EOF" >> $GITHUB_OUTPUT
+          echo "$messages" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "$messages"
+
+      - name: Determine bump (semver via Conventional Commits)
+        id: bump
+        run: |
+          msgs="${{ steps.commits.outputs.messages }}"
+          bump="none"
+          # Major: BREAKING CHANGE no corpo ou ! após o tipo
+          if echo "$msgs" | grep -E 'BREAKING CHANGE|!: ' -q; then
+            bump="major"
+          # Minor: feat
+          elif echo "$msgs" | grep -E '^feat(\(|:)|^feat!\b' -qi; then
+            bump="minor"
+          # Patch: fix, perf, refactor
+          elif echo "$msgs" | grep -E '^(fix|perf|refactor)(\(|:)|^fix!\b' -qi; then
+            bump="patch"
+          else
+           bump="patch"
+          fi
+          echo "bump=$bump" >> $GITHUB_OUTPUT
+          echo "Bump: $bump"
+
+      - name: Compute next version
+        id: version
+        run: |
+          last="${{ steps.lasttag.outputs.last_tag }}"
+          bump="${{ steps.bump.outputs.bump }}"
+          ver=${last#v}
+          IFS='.' read -r major minor patch <<< "$ver"
+          [ -z "$major" ] && major=0
+          [ -z "$minor" ] && minor=0
+          [ -z "$patch" ] && patch=0
+
+          if [ "$bump" = "major" ]; then
+            major=$((major+1)); minor=0; patch=0
+          elif [ "$bump" = "minor" ]; then
+            minor=$((minor+1)); patch=0
+          elif [ "$bump" = "patch" ]; then
+            patch=$((patch+1))
+          else
+            echo "No semantic commits since $last. Skipping tag."
+            echo "new_tag=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          new_tag="v${major}.${minor}.${patch}"
+          echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
+          echo "New tag: $new_tag"
+
+      - name: Create and push tag
+        if: steps.version.outputs.new_tag != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          new="${{ steps.version.outputs.new_tag }}"
+          if git rev-parse -q --verify "refs/tags/$new" >/dev/null; then
+            echo "Tag $new already exists. Skipping."
+            exit 0
+          fi
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git tag -a "$new" -m "chore(release): $new"
+          git push origin "$new"
+
