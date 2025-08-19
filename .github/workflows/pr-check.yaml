@@ -1,0 +1,37 @@
+# .github/workflows/node-fast-pr-check.yml
+name: Pull request check
+
+on:
+    pull_request:
+        branches:
+            - main
+        types:
+            - opened
+            - synchronize
+jobs:
+  pr-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR head branch
+        id: checkout-pr
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Retrieve status of PR
+        run: |
+            file_hash=$(git log -n 1 --pretty=format:%H -- dist/)
+            head_hash=$(git rev-parse HEAD)
+
+            echo "File hash to compare: $file_hash"
+            echo "Head hash to compare: $head_hash"
+            echo "Comparing file hash with hash of the branch... ${{ steps.checkout-pr.outputs.ref }} "
+
+            if [[ "$file_hash" != "$head_hash" ]]; then
+              echo "Hashes do not match. Setting PR status to failure."
+              exit 1  
+            fi
+        
+        
