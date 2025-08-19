@@ -3,7 +3,8 @@ import * as fs from 'fs';
 import { parseCoverageReport } from './reports/jcoco-report-parser';
 
 
-async function run(): Promise<void> {
+async function run() {
+    core.info('Action started');
     try {
         const reportFile = core.getInput('report-file');
         const minCoverage = parseFloat(core.getInput('min-coverage')) || 0;
@@ -37,3 +38,4 @@ async function run(): Promise<void> {
 }
 
 run();
+export { run };

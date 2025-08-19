@@ -28799,6 +28799,23 @@ module.exports = parseParams
 /******/ }
 /******/ 
 /************************************************************************/
+/******/ /* webpack/runtime/define property getters */
+/******/ (() => {
+/******/ 	// define getter functions for harmony exports
+/******/ 	__nccwpck_require__.d = (exports, definition) => {
+/******/ 		for(var key in definition) {
+/******/ 			if(__nccwpck_require__.o(definition, key) && !__nccwpck_require__.o(exports, key)) {
+/******/ 				Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
+/******/ 			}
+/******/ 		}
+/******/ 	};
+/******/ })();
+/******/ 
+/******/ /* webpack/runtime/hasOwnProperty shorthand */
+/******/ (() => {
+/******/ 	__nccwpck_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
+/******/ })();
+/******/ 
 /******/ /* webpack/runtime/compat */
 /******/ 
 /******/ if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = new URL('.', import.meta.url).pathname.slice(import.meta.url.match(/^file:\/\/\/\w:/) ? 1 : 0, -1) + "/";
@@ -28808,8 +28825,13 @@ var __webpack_exports__ = {};
 // This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
 (() => {
 
+// EXPORTS
+__nccwpck_require__.d(__webpack_exports__, {
+  "K": () => (/* binding */ run)
+});
+
 // EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
-var lib_core = __nccwpck_require__(2186);
+var core = __nccwpck_require__(2186);
 // EXTERNAL MODULE: external "fs"
 var external_fs_ = __nccwpck_require__(7147);
 // EXTERNAL MODULE: ./node_modules/fast-xml-parser/src/fxp.js
@@ -28817,8 +28839,8 @@ var fxp = __nccwpck_require__(2603);
 ;// CONCATENATED MODULE: ./src/reports/jcoco-report-parser.ts
 
 // Parses a JaCoCo XML report and returns line/branch coverage in percent (0-100)
-function jcoco_report_parser_parseCoverageReport(xml) {
-    const parser = new XMLParser({
+function parseCoverageReport(xml) {
+    const parser = new fxp.XMLParser({
         ignoreAttributes: false
     });
     const report = parser.parse(xml);
@@ -28842,13 +28864,14 @@ function jcoco_report_parser_parseCoverageReport(xml) {
 
 
 async function run() {
+    core.info('Action started');
     try {
         const reportFile = core.getInput('report-file');
         const minCoverage = parseFloat(core.getInput('min-coverage')) || 0;
-        if (!fs.existsSync(reportFile)) {
+        if (!external_fs_.existsSync(reportFile)) {
             throw new Error(`Report file not found: ${reportFile}`);
         }
-        const xmlContent = fs.readFileSync(reportFile, 'utf-8');
+        const xmlContent = external_fs_.readFileSync(reportFile, 'utf-8');
         const { lineCoverage, branchCoverage } = parseCoverageReport(xmlContent);
         core.info(`Line Coverage: ${lineCoverage}`);
         core.info(`Branch Coverage: ${branchCoverage}`);
@@ -28867,6 +28890,10 @@ async function run() {
         core.setFailed(`Action failed with error: ${error.message}`);
     }
 }
+run();
+
 
 })();
 
+var __webpack_exports__run = __webpack_exports__.K;
+export { __webpack_exports__run as run };
