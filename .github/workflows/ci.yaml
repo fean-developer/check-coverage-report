@@ -35,8 +35,8 @@ jobs:
         id: step-build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          USER_CONFIG: ${{ secrets.USER_CONFIG }}
-          USER_CONFIG_ID: ${{ secrets.USER_CONFIG_ID }}
+          USER_CONFIG: ${{ vars.USER_CONFIG }}
+          USER_CONFIG_ID: ${{ vars.USER_CONFIG_ID }}
         run: |
           git config user.name "$USER_CONFIG"
           git config user.email "$USER_CONFIG_ID"
