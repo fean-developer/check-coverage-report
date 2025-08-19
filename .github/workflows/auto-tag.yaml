@@ -7,7 +7,9 @@ on:
   pull_request:
     branches:
       - main
-      
+    types:
+      - closed
+
   workflow_dispatch:
 
 permissions:
@@ -16,7 +18,7 @@ permissions:
 jobs:
   tag:
     # Executa em push ou quando PR foi mesclado na main
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -42,7 +44,7 @@ jobs:
           else
             range="${last_tag}..HEAD"
           fi
-          messages=$(git log --no-merges --pretty=format:%s $range || true)
+          messages=$(git log --no-merges --pretty=format:%s -n 2 $range || true)
           echo "messages<<EOF" >> $GITHUB_OUTPUT
           echo "$messages" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -91,7 +93,10 @@ jobs:
             exit 0
           fi
           new_tag="v${major}.${minor}.${patch}"
-          major_tag="v${major}" >> $GITHUB_OUTPUT
+
+          # Extrai somente o prefixo major (v[0-9]) da última tag
+          nominal_tag=$(echo "$last" | grep -oE '^v[0-9]+')
+          echo "major_tag=$nominal_tag" >> $GITHUB_OUTPUT
           echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
           echo "New tag: $new_tag"
 
