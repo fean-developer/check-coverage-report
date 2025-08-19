@@ -35592,8 +35592,6 @@ __nccwpck_require__.d(__webpack_exports__, {
 var core = __nccwpck_require__(2186);
 // EXTERNAL MODULE: external "fs"
 var external_fs_ = __nccwpck_require__(7147);
-// EXTERNAL MODULE: ./node_modules/table/dist/src/index.js
-var src = __nccwpck_require__(3756);
 // EXTERNAL MODULE: ./node_modules/fast-xml-parser/src/fxp.js
 var fxp = __nccwpck_require__(2603);
 ;// CONCATENATED MODULE: ./src/parsers/jacoco.ts
@@ -35877,101 +35875,184 @@ function routeByFormat(xml, format) {
     }
 }
 
+;// CONCATENATED MODULE: ./src/helpers/tables-helpers.ts
+// Exemplos de uso da função setColumnsUserConfig:
+//
+// 1. Todas as colunas centralizadas, exceto a primeira à esquerda:
+// const columns = setColumnsUserConfig(5, { 0: 'left', '1-4': 'center' });
+// Resultado:
+// {
+//   0: { alignment: 'left' },
+//   1: { alignment: 'center' },
+//   2: { alignment: 'center' },
+//   3: { alignment: 'center' },
+//   4: { alignment: 'center' }
+// }
+//
+// 2. Primeira à esquerda, última à direita, demais centralizadas:
+// const columns = setColumnsUserConfig(6, { 0: 'left', '1-4': 'center', 5: 'right' });
+// Resultado:
+// {
+//   0: { alignment: 'left' },
+//   1: { alignment: 'center' },
+//   2: { alignment: 'center' },
+//   3: { alignment: 'center' },
+//   4: { alignment: 'center' },
+//   5: { alignment: 'right' }
+// }
+//
+// 3. Todas à direita:
+// const columns = setColumnsUserConfig(3, { '0-2': 'right' });
+// Resultado:
+// {
+//   0: { alignment: 'right' },
+//   1: { alignment: 'right' },
+//   2: { alignment: 'right' }
+// }
+//
+// 4. Configuração mista:
+// const columns = setColumnsUserConfig(4, { 0: 'left', 1: 'center', '2-3': 'right' });
+// Resultado:
+// {
+//   0: { alignment: 'left' },
+//   1: { alignment: 'center' },
+//   2: { alignment: 'right' },
+//   3: { alignment: 'right' }
+// }
+/**
+ * Configura dinamicamente o alinhamento das colunas de uma tabela.
+ * @param totalColumns Número total de colunas
+ * @param config Objeto de configuração, exemplo: { 0: 'left', '1-11': 'center', 12: 'right' }
+ * @returns Objeto columns: { 0: { alignment: 'left' }, ... }
+ */
+function setColumnsUserConfig(totalColumns, config) {
+    const columns = {};
+    // Inicializa todas as colunas com 'left' por padrão
+    for (let i = 0; i < totalColumns; i++) {
+        columns[i] = { alignment: 'left' };
+    }
+    Object.entries(config).forEach(([key, align]) => {
+        if (key.includes('-')) {
+            // Intervalo, ex: '1-11'
+            const [start, end] = key.split('-').map(Number);
+            for (let i = start; i <= end && i < totalColumns; i++) {
+                columns[i] = { alignment: align };
+            }
+        }
+        else {
+            const idx = Number(key);
+            if (!isNaN(idx) && idx < totalColumns) {
+                columns[idx] = { alignment: align };
+            }
+        }
+    });
+    return columns;
+}
+function printCoverageSummary(result, tableOutput, minCoverage, core) {
+    let summary = `\n** 📑 Resumo:**\n`;
+    summary += `✨ Total linhas cobertas: ${result.totalCoveredLines}\n`;
+    summary += `‼️ Total linhas não cobertas: ${result.totalMissedLines}\n`;
+    summary += `📌 Coverage percentual:\n`;
+    summary += `    Lines coverage: ${result.lineCoverage.toFixed(2)}%\n`;
+    summary += `    Branchs coverage: ${result.branchCoverage.toFixed(2)}%\n`;
+    core.info("\n" + tableOutput + summary);
+    if (result.lineCoverage < minCoverage) {
+        core.setFailed(`Line coverage ${result.lineCoverage.toFixed(2)}% is below the minimum threshold of ${minCoverage}%`);
+        return;
+    }
+    if (result.branchCoverage < minCoverage) {
+        core.setFailed(`Branch coverage ${result.branchCoverage.toFixed(2)}% is below the minimum threshold of ${minCoverage}%`);
+        return;
+    }
+}
+
+// EXTERNAL MODULE: ./node_modules/table/dist/src/index.js
+var src = __nccwpck_require__(3756);
+;// CONCATENATED MODULE: ./src/helpers/build-coverage-table-data.ts
+
+
+/**
+ * Gera os dados da tabela de cobertura no formato esperado pelo pacote 'table'.
+ */
+function buildCoverageTableData(result) {
+    const HEADER = [
+        'Element',
+        'Missed Instr.', 'Cov.',
+        'Missed Branches', 'Cov.',
+        'Missed', 'Cxty', 'Missed', 'Lines', 'Missed', 'Methods', 'Missed', 'Classes'
+    ];
+    const rows = result.elements.map(el => {
+        const instrTotal = el.missedInstructions + el.coveredInstructions;
+        const instrCov = instrTotal > 0 ? `${Math.round((el.coveredInstructions / instrTotal) * 100)}%` : '0%';
+        const branchTotal = el.missedBranches + el.coveredBranches;
+        const branchCov = branchTotal > 0 ? `${Math.round((el.coveredBranches / branchTotal) * 100)}%` : 'n/a';
+        const lineTotal = el.missedLines + el.coveredLines;
+        const methodTotal = el.missedMethods + el.coveredMethods;
+        const classTotal = el.missedClasses + el.coveredClasses;
+        return [
+            el.name,
+            `${el.missedInstructions} of ${instrTotal}`,
+            instrCov,
+            branchTotal > 0 ? `${el.missedBranches} of ${branchTotal}` : 'n/a',
+            branchCov,
+            el.missedBranches,
+            (el.missedComplexity ?? 0) + (el.coveredComplexity ?? 0) > 0 ? (el.missedComplexity ?? 0) : 0,
+            el.missedLines, lineTotal, el.missedMethods, methodTotal, el.missedClasses, classTotal
+        ];
+    });
+    const totalRow = [
+        'Total',
+        `${result.totalMissedInstructions} of ${result.totalMissedInstructions + result.totalCoveredInstructions}`,
+        result.totalCoveredInstructions + result.totalMissedInstructions > 0 ? `${Math.round((result.totalCoveredInstructions / (result.totalCoveredInstructions + result.totalMissedInstructions)) * 100)}%` : '0%',
+        result.totalCoveredBranches + result.totalMissedBranches > 0 ? `${result.totalMissedBranches} of ${result.totalMissedBranches + result.totalCoveredBranches}` : 'n/a',
+        result.totalCoveredBranches + result.totalMissedBranches > 0 ? `${Math.round((result.totalCoveredBranches / (result.totalCoveredBranches + result.totalMissedBranches)) * 100)}%` : 'n/a',
+        result.totalMissedBranches,
+        (result.totalMissedComplexity ?? 0),
+        result.totalMissedLines, result.totalMissedLines + result.totalCoveredLines,
+        result.totalMissedMethods, result.totalMissedMethods + result.totalCoveredMethods,
+        result.totalMissedClasses, result.totalMissedClasses + result.totalCoveredClasses
+    ];
+    return [HEADER, ...rows, totalRow];
+}
+function printTable(data, core) {
+    const output = (0,src.table)(data, {
+        columns: setColumnsUserConfig(13, {
+            0: "left",
+            "1-12": "center",
+        }),
+        drawHorizontalLine: (index, size) => {
+            return index === 0 || index === 1 || index === size;
+        },
+    });
+    return output;
+}
+
+;// CONCATENATED MODULE: ./src/helpers/inputs.ts
+
+const inputs = {
+    reportFile: core.getInput('report-file'),
+    reportFormat: (core.getInput('report-format') || 'auto'),
+    minCoverage: parseFloat(core.getInput('min-coverage')) || 0,
+};
+
 ;// CONCATENATED MODULE: ./src/index.ts
 
 
 
 
+
+
 async function run() {
-    core.info('Action started');
     try {
-        const reportFile = core.getInput('report-file');
-        const reportFormat = (core.getInput('report-format') || 'auto');
-        const minCoverage = parseFloat(core.getInput('min-coverage')) || 0;
+        const { reportFile, reportFormat, minCoverage } = inputs;
         if (!external_fs_.existsSync(reportFile)) {
             throw new Error(`Report file not found: ${reportFile}`);
         }
-        const xmlContent = external_fs_.readFileSync(reportFile, 'utf-8');
+        const xmlContent = external_fs_.readFileSync(reportFile, "utf-8");
         const result = parseCoverageReport(xmlContent, reportFormat);
-        // Monta tabela formatada usando 'table'
-        // Tabela igual à do JaCoCo HTML
-        const data = [
-            [
-                'Element',
-                'Missed Instr.', 'Cov.',
-                'Missed Branches', 'Cov.',
-                'Missed', 'Cxty', 'Missed', 'Lines', 'Missed', 'Methods', 'Missed', 'Classes'
-            ],
-            ...result.elements.map(el => {
-                // Percentuais
-                const instrTotal = el.missedInstructions + el.coveredInstructions;
-                const instrCov = instrTotal > 0 ? `${Math.round((el.coveredInstructions / instrTotal) * 100)}%` : '0%';
-                const branchTotal = el.missedBranches + el.coveredBranches;
-                const branchCov = branchTotal > 0 ? `${Math.round((el.coveredBranches / branchTotal) * 100)}%` : 'n/a';
-                // Linhas
-                const lineTotal = el.missedLines + el.coveredLines;
-                // Métodos
-                const methodTotal = el.missedMethods + el.coveredMethods;
-                // Classes
-                const classTotal = el.missedClasses + el.coveredClasses;
-                return [
-                    el.name,
-                    `${el.missedInstructions} of ${instrTotal}`, instrCov,
-                    branchTotal > 0 ? `${el.missedBranches} of ${branchTotal}` : 'n/a', branchCov,
-                    el.missedBranches,
-                    (el.missedComplexity ?? 0) + (el.coveredComplexity ?? 0) > 0 ? (el.missedComplexity ?? 0) : 0,
-                    el.missedLines, lineTotal, el.missedMethods, methodTotal, el.missedClasses, classTotal
-                ];
-            }),
-            [
-                'Total',
-                `${result.totalMissedInstructions} of ${result.totalMissedInstructions + result.totalCoveredInstructions}`,
-                result.totalCoveredInstructions + result.totalMissedInstructions > 0 ? `${Math.round((result.totalCoveredInstructions / (result.totalCoveredInstructions + result.totalMissedInstructions)) * 100)}%` : '0%',
-                result.totalCoveredBranches + result.totalMissedBranches > 0 ? `${result.totalMissedBranches} of ${result.totalMissedBranches + result.totalCoveredBranches}` : 'n/a',
-                result.totalCoveredBranches + result.totalMissedBranches > 0 ? `${Math.round((result.totalCoveredBranches / (result.totalCoveredBranches + result.totalMissedBranches)) * 100)}%` : 'n/a',
-                result.totalMissedBranches,
-                (result.totalMissedComplexity ?? 0),
-                result.totalMissedLines, result.totalMissedLines + result.totalCoveredLines,
-                result.totalMissedMethods, result.totalMissedMethods + result.totalCoveredMethods,
-                result.totalMissedClasses, result.totalMissedClasses + result.totalCoveredClasses
-            ]
-        ];
-        const tableOutput = (0,src.table)(data, {
-            columns: {
-                0: { alignment: 'left' },
-                1: { alignment: 'center' },
-                2: { alignment: 'center' },
-                3: { alignment: 'center' },
-                4: { alignment: 'center' },
-                5: { alignment: 'center' },
-                6: { alignment: 'center' },
-                7: { alignment: 'center' },
-                8: { alignment: 'center' },
-                9: { alignment: 'center' },
-                10: { alignment: 'center' },
-                11: { alignment: 'center' },
-                12: { alignment: 'center' }
-            },
-            drawHorizontalLine: (index, size) => {
-                return index === 0 || index === 1 || index === size;
-            }
-        });
-        // Sumário
-        let summary = `\n** 📑 Resumo:**\n`;
-        summary += `✨ Total linhas cobertas: ${result.totalCoveredLines}\n`;
-        summary += `‼️ Total linhas não cobertas: ${result.totalMissedLines}\n`;
-        summary += `📌 Coverage percentual:\n`;
-        summary += `    Lines coverage: ${result.lineCoverage.toFixed(2)}%\n`;
-        summary += `    Branchs coverage: ${result.branchCoverage.toFixed(2)}%\n`;
-        core.info('\n' + tableOutput + summary);
-        if (result.lineCoverage < minCoverage) {
-            core.setFailed(`Line coverage ${result.lineCoverage.toFixed(2)}% is below the minimum threshold of ${minCoverage}%`);
-            return;
-        }
-        if (result.branchCoverage < minCoverage) {
-            core.setFailed(`Branch coverage ${result.branchCoverage.toFixed(2)}% is below the minimum threshold of ${minCoverage}%`);
-            return;
-        }
+        const data = buildCoverageTableData(result);
+        const tableOutput = printTable(data, core);
+        printCoverageSummary(result, tableOutput, minCoverage, core);
     }
     catch (error) {
         core.setFailed(`Action failed with error: ${error.message}`);
