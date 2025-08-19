@@ -8,7 +8,7 @@ on:
       - main
 jobs:
   call-fast-build:
-    uses: ./node-fast-build.yaml@main
+    uses: .github/workflows/node-fast-build.yaml@main
     with:
       head-branch: ${{ github.head_ref }}
     secrets: inherit
