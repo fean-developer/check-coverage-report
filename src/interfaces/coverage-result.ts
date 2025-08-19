@@ -1,4 +1,7 @@
-// Interface para o resultado do parseCoverageReport
+/**
+ * Interface to represent a code coverage element.
+ */
+
 export interface CoverageElement {
     name: string;
     missedInstructions: number;
