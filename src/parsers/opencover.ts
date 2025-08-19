@@ -75,4 +75,10 @@ export function parseOpenCover(doc: any): CoverageResult {
   };
 }
 
+/**
+ * Calculate the percentage of covered vs missed items.
+ * @param c The number of covered items.
+ * @param m The number of missed items.
+ * @returns The percentage of covered items.
+ */
 function pct(c: number, m: number) { const d = c + m; return d > 0 ? (c / d) * 100 : 0; }

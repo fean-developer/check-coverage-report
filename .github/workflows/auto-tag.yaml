@@ -123,6 +123,19 @@ jobs:
             git push origin ":refs/tags/$major_tag"
           fi
           git tag -a "$major_tag" -m "chore(release): $major_tag"
-          git push origin "$major_tag"
-          git push origin "$new"
+              git push origin "$major_tag"
+              git push origin "$new"
+    
+      - name: Create GitHub Release
+        if: steps.version.outputs.new_tag != ''
+        uses: actions/create-release@v1
+        with:
+            tag_name: ${{ steps.version.outputs.new_tag }}
+            release_name: Release ${{ steps.version.outputs.new_tag }}
+            body: |
+                Automated release for ${{ steps.version.outputs.new_tag }}
+                draft: false
+                prerelease: false
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
