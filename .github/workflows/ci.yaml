@@ -48,7 +48,7 @@ jobs:
             git commit -m "Executing build ${{ github.head_ref || github.ref_name }}"
             git push origin ${{ github.head_ref || github.ref_name }}
           else
-            echo "📌 You have no changes to commit for ${{ github.head_ref || github.ref_name }}."
-            echo "   - Please make changes to the code before committing."
-            exit 0
+            echo "⚠️ We don't find changes to commit for ${{ github.head_ref || github.ref_name }}."
+            echo "⚡ Please make changes to the code on the branch before publishing."
+            exit 1
           fi
