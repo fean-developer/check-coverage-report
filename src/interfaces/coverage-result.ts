@@ -1,5 +1,5 @@
 /**
- * Interface para representar um elemento de cobertura de código.
+ * Interface to represent a code coverage element.
  */
 
 export interface CoverageElement {
