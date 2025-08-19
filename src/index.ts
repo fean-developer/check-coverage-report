@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import * as fs from 'fs';
+import { table } from 'table';
 import { parseCoverageReport } from './reports/jcoco-report-parser';
 
 
@@ -17,14 +18,53 @@ async function run() {
 
         const result = parseCoverageReport(xmlContent);
 
-        // Monta tabela markdown
-        let table = '| Element | Missed Instructions | Covered Instructions | Instr. Cov. (%) | Missed Branches | Covered Branches | Branch Cov. (%) | Missed Lines | Covered Lines | Line Cov. (%) | Missed Methods | Covered Methods | Missed Classes | Covered Classes |\n';
-        table += '|---------|--------------------|----------------------|-----------------|-----------------|------------------|-----------------|--------------|--------------|---------------|---------------|----------------|---------------|----------------|\n';
-        for (const el of result.elements) {
-            table += `| ${el.name} | ${el.missedInstructions} | ${el.coveredInstructions} | ${el.instructionCoverage.toFixed(2)} | ${el.missedBranches} | ${el.coveredBranches} | ${el.branchCoverage.toFixed(2)} | ${el.missedLines} | ${el.coveredLines} | ${el.lineCoverage.toFixed(2)} | ${el.missedMethods} | ${el.coveredMethods} | ${el.missedClasses} | ${el.coveredClasses} |\n`;
-        }
-        // Totais
-        table += `| **Total** | ${result.totalMissedInstructions} | ${result.totalCoveredInstructions} | - | ${result.totalMissedBranches} | ${result.totalCoveredBranches} | - | ${result.totalMissedLines} | ${result.totalCoveredLines} | - | ${result.totalMissedMethods} | ${result.totalCoveredMethods} | ${result.totalMissedClasses} | ${result.totalCoveredClasses} |\n`;
+
+        // Monta tabela formatada usando 'table'
+        const data = [
+            [
+                'Element',
+                'Missed Instr.', 'Covered Instr.', 'Instr. Cov. (%)',
+                'Missed Branches', 'Covered Branches', 'Branch Cov. (%)',
+                'Missed Lines', 'Covered Lines', 'Line Cov. (%)',
+                'Missed Methods', 'Covered Methods',
+                'Missed Classes', 'Covered Classes'
+            ],
+            ...result.elements.map(el => [
+                el.name,
+                el.missedInstructions, el.coveredInstructions, el.instructionCoverage.toFixed(2),
+                el.missedBranches, el.coveredBranches, el.branchCoverage.toFixed(2),
+                el.missedLines, el.coveredLines, el.lineCoverage.toFixed(2),
+                el.missedMethods, el.coveredMethods,
+                el.missedClasses, el.coveredClasses
+            ]),
+            [
+                'Total',
+                result.totalMissedInstructions, result.totalCoveredInstructions, '-',
+                result.totalMissedBranches, result.totalCoveredBranches, '-',
+                result.totalMissedLines, result.totalCoveredLines, '-',
+                result.totalMissedMethods, result.totalCoveredMethods,
+                result.totalMissedClasses, result.totalCoveredClasses
+            ]
+        ];
+
+        const tableOutput = table(data, {
+            columns: {
+                0: { alignment: 'left' },
+                1: { alignment: 'right' },
+                2: { alignment: 'right' },
+                3: { alignment: 'right' },
+                4: { alignment: 'right' },
+                5: { alignment: 'right' },
+                6: { alignment: 'right' },
+                7: { alignment: 'right' },
+                8: { alignment: 'right' },
+                9: { alignment: 'right' },
+                10: { alignment: 'right' },
+                11: { alignment: 'right' },
+                12: { alignment: 'right' },
+                13: { alignment: 'right' }
+            }
+        });
 
         // Sumário
         let summary = `\n**Resumo:**\n`;
@@ -34,7 +74,7 @@ async function run() {
         summary += `    Lines coverage: ${result.lineCoverage.toFixed(2)}%\n`;
         summary += `    Branchs coverage: ${result.branchCoverage.toFixed(2)}%\n`;
 
-        core.info('\n' + table + summary);
+        core.info('\n' + tableOutput + summary);
 
         if (result.lineCoverage < minCoverage) {
             core.setFailed(`Line coverage ${result.lineCoverage.toFixed(2)}% is below the minimum threshold of ${minCoverage}%`);
