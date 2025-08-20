@@ -1,4 +1,4 @@
-name: "JaCoCo Coverage Check"
+name: "Check coverage report"
 description: "Valida a cobertura de código gerada pelo JaCoCo"
 author: "Seu Nome"
 inputs:
