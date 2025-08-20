@@ -21,4 +21,4 @@ yarn-error.log*
 # Local Env Files
 .env*.local
 .env
-dist/
+/dist
