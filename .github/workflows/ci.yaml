@@ -40,7 +40,7 @@ jobs:
           git config user.email "$USER_CONFIG_ID"
           
           # Força a atualização da pasta dist uma vez que ela é ignorada no .gitignore
-            git add .
+            git add -f dist/
           
           status=$(git status);
 
