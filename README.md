@@ -3,8 +3,10 @@
 
 GitHub Action para validar a cobertura de código a partir de relatórios XML de múltiplos formatos (JaCoCo, Cobertura, OpenCover, etc).
 
-## Usage
+> [!IMPORTANT]
+> Essa Action não gera a cobertura de código, ela é específica para ler o relatório em XML e barrar o workflow se não atingir o valor definido!
 
+## Usage
 
 
 ## Como usar (GitHub Actions)
