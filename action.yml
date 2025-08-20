@@ -1,5 +1,5 @@
-name: "JaCoCo Coverage Check"
-description: "Valida a cobertura de código gerada pelo JaCoCo"
+name: "Check coverage report"
+description: "Validates code coverage reports"
 author: "Seu Nome"
 inputs:
   report-file:
