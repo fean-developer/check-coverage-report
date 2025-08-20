@@ -43,12 +43,15 @@ jobs:
           git add -f dist/
 
           status=$(git status);
+          echo "---> $status";
+
+          git status
+
 
           if echo "$status" | grep -q "nothing to commit"; then
             echo "ℹ️ No changes to commit. Skipping commit."
             exit 0
           else
-
             git commit -m "Executing build ${{ github.head_ref || github.ref_name }}"
             git push origin ${{ github.head_ref || github.ref_name }}
           fi
