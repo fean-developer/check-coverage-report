@@ -42,11 +42,13 @@ jobs:
           # Força a atualização da pasta dist uma vez que ela é ignorada no .gitignore
           git add -f dist/
 
-          # Verifica se há mudanças STAGED (no dist) para commitar
-          if git diff --cached --quiet; then
-            echo "ℹ️ No build output changes in dist to commit. Skipping commit."
+          status=$(git status);
+
+          if echo "$status" | grep -q "nothing to commit"; then
+            echo "ℹ️ No changes to commit. Skipping commit."
             exit 0
           else
+
             git commit -m "Executing build ${{ github.head_ref || github.ref_name }}"
             git push origin ${{ github.head_ref || github.ref_name }}
           fi
