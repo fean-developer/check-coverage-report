@@ -38,15 +38,17 @@ jobs:
         run: |
           git config user.name "$USER_CONFIG"
           git config user.email "$USER_CONFIG_ID"
-
+          
           # Força a atualização da pasta dist uma vez que ela é ignorada no .gitignore
-          git add -f dist/
+            git add -f dist/
+          
+          status=$(git status);
 
-          # Verifica se há mudanças STAGED (no dist) para commitar
-          if git diff --cached --quiet; then
-            echo "ℹ️ No build output changes in dist to commit. Skipping commit."
-            exit 0
-          else
-            git commit -m "Executing build ${{ github.head_ref || github.ref_name }}"
-            git push origin ${{ github.head_ref || github.ref_name }}
-          fi
+            # Verifica se há mudanças STAGED para commitar
+            if git diff --cached --quiet; then
+              echo "ℹ️ No changes to commit. Skipping commit."
+              exit 0
+            else
+              git commit -m "Executing build ${{ github.head_ref || github.ref_name }}"
+              git push origin ${{ github.head_ref || github.ref_name }}
+            fi
