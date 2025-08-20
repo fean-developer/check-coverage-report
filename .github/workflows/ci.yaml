@@ -39,13 +39,13 @@ jobs:
           git config user.name "$USER_CONFIG"
           git config user.email "$USER_CONFIG_ID"
           
-          status=$(git status);
           # Força a atualização da pasta dist uma vez que ela é ignorada no .gitignore
           git add -f dist/
-
+          
+          status=$(git status);
           echo "---> $status";
-
-          git status
+          
+          git diff
 
 
           if echo "$status" | grep -q "nothing to commit"; then
